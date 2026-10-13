@@ -1,34 +1,33 @@
 openapi: 3.1.0
-info:
-  title: Meynool — Tamil Literary Knowledge and Scientific Evidence Intelligence Platform API
-  version: 0.1.0
-  description: Finalized contract baseline. Admin-created accounts only; no public registration. Implementations must not treat examples as real scientific data.
+info: {title: Meynool — Tamil Literary Knowledge and Scientific Evidence Intelligence Platform API, version: 0.1.0,
+  description: Finalized contract baseline. Admin-created accounts only; no public registration. Implementations
+    must not treat examples as real scientific data.}
 servers:
-  - url: http://127.0.0.1:8000/api/v1
-    description: Local development
+- {url: 'http://127.0.0.1:8000/api/v1', description: Local development}
 tags:
-  - name: Health
-  - name: Auth
-  - name: Admin
-  - name: Ingestion
-  - name: Sources
-  - name: Science
-  - name: Retrieval
-  - name: Analysis
-  - name: Evidence
-  - name: Research
+- {name: Health}
+- {name: Auth}
+- {name: Admin}
+- {name: Ingestion}
+- {name: Sources}
+- {name: Science}
+- {name: Retrieval}
+- {name: Analysis}
+- {name: Evidence}
+- {name: Research}
 paths:
   /health:
     get:
       tags: [Health]
       summary: Check API and dependency health
       responses:
-        "200":
+        '200':
           description: Health status
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
+              schema: {$ref: '#/components/schemas/HealthResponse'}
+        '503': {$ref: '#/components/responses/DependencyUnavailable'}
+      operationId: getHealth
   /auth/login:
     post:
       tags: [Auth]
@@ -37,494 +36,1742 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
+            schema: {$ref: '#/components/schemas/LoginRequest'}
       responses:
-        "200":
+        '200':
           description: Authenticated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+              schema: {$ref: '#/components/schemas/UserResponse'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+      operationId: postAuthLogin
   /auth/logout:
     post:
       tags: [Auth]
       summary: Log out
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       responses:
-        "204":
-          description: Logged out
+        '204': {description: Logged out}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: postAuthLogout
+      x-required-roles: [authenticated]
   /auth/me:
     get:
       tags: [Auth]
       summary: Get current user
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       responses:
-        "200":
+        '200':
           description: Current user
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+              schema: {$ref: '#/components/schemas/User'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getAuthMe
+      x-required-roles: [authenticated]
   /sources:
     get:
       tags: [Sources]
       summary: List literary sources
       parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-        - in: query
-          name: tradition
-          schema: { type: string }
-        - in: query
-          name: language_code
-          schema: { type: string, default: ta }
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+      - {$ref: '#/components/parameters/Limit'}
+      - {$ref: '#/components/parameters/Offset'}
+      - name: q
+        in: query
+        required: false
+        schema: {type: string}
+      - name: tradition_or_collection
+        in: query
+        required: false
+        schema: {type: string}
+      - name: language_code
+        in: query
+        required: false
+        schema: {type: string}
+      - name: source_status
+        in: query
+        required: false
+        schema: {type: string}
+      - name: sort
+        in: query
+        required: false
+        schema: {type: string}
+      - &id001 {$ref: '#/components/parameters/Limit'}
+      - &id002 {$ref: '#/components/parameters/Offset'}
       responses:
-        "200":
+        '200':
           description: Source list
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/SourceList"
+              schema: {$ref: '#/components/schemas/SourceList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getSources
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
+    post:
+      tags: [Sources]
+      summary: Create literary source metadata
+      operationId: postSources
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin, authorized curator.'
+      x-required-roles: [admin, authorized curator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SourceCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LiterarySource'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
   /sources/{source_id}:
     get:
       tags: [Sources]
       summary: Get literary source
       parameters:
-        - in: path
-          name: source_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: source_id
+        required: true
+        schema: {type: string, format: uuid}
       responses:
-        "200":
+        '200':
           description: Source
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/LiterarySource"
-        "404":
-          $ref: "#/components/responses/NotFound"
+              schema: {$ref: '#/components/schemas/LiterarySource'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getSourcesSourceId
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
+    patch:
+      tags: [Sources]
+      summary: Update literary source metadata
+      operationId: patchSourcesSourceId
+      description: 'Attribution confidence/status changes must be auditable.
+
+
+        Authorization: admin, authorized curator.'
+      parameters:
+      - name: source_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin, authorized curator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SourcePatchRequest'}
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LiterarySource'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/ValidationError'}
   /passages:
     get:
       tags: [Sources]
       summary: Search passages
       parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-        - in: query
-          name: source_id
-          schema: { type: string, format: uuid }
-        - in: query
-          name: edition_id
-          schema: { type: string, format: uuid }
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+      - {$ref: '#/components/parameters/Limit'}
+      - {$ref: '#/components/parameters/Offset'}
+      - name: q
+        in: query
+        required: false
+        schema: {type: string}
+      - name: source_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: edition_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: status
+        in: query
+        required: false
+        schema: {type: string}
+      - name: language_code
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
       responses:
-        "200":
+        '200':
           description: Passage list
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/PassageList"
+              schema: {$ref: '#/components/schemas/PassageList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getPassages
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /passages/{passage_id}:
     get:
       tags: [Sources]
       summary: Get passage and provenance
       parameters:
-        - in: path
-          name: passage_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: passage_id
+        required: true
+        schema: {type: string, format: uuid}
       responses:
-        "200":
+        '200':
           description: Passage
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Passage"
-        "404":
-          $ref: "#/components/responses/NotFound"
+              schema: {$ref: '#/components/schemas/Passage'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getPassagesPassageId
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /science/search:
     get:
       tags: [Science]
       summary: Search scientific literature
       parameters:
-        - in: query
-          name: q
-          required: true
-          schema: { type: string, minLength: 1 }
-        - in: query
-          name: provider
-          schema:
-            type: string
-            enum: [pubmed, europe_pmc, all]
-            default: all
-        - in: query
-          name: year_from
-          schema: { type: integer, minimum: 1800, maximum: 2200 }
-        - in: query
-          name: year_to
-          schema: { type: integer, minimum: 1800, maximum: 2200 }
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+      - {$ref: '#/components/parameters/Limit'}
+      - {$ref: '#/components/parameters/Offset'}
+      - name: q
+        in: query
+        required: true
+        schema: {type: string, minLength: 1}
+      - name: provider
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [pubmed, europe_pmc, all]
+          default: all
+      - name: year_from
+        in: query
+        required: false
+        schema: {type: integer}
+      - name: year_to
+        in: query
+        required: false
+        schema: {type: integer}
+      - *id001
+      - *id002
       responses:
-        "200":
+        '200':
           description: Scientific search results
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/PublicationSearchResponse"
-        "503":
-          $ref: "#/components/responses/DependencyUnavailable"
-  /ingestion/jobs:
-    post:
-      tags: [Science]
-      summary: Start authorized ingestion job
+              schema: {$ref: '#/components/schemas/PublicationSearchResponse'}
+        '503': {$ref: '#/components/responses/DependencyUnavailable'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getScienceSearch
       security:
-        - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/IngestionRequest"
-      responses:
-        "202":
-          description: Job queued
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobAccepted"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /ingestion/jobs/{job_id}:
     get:
       tags: [Science]
       summary: Get ingestion job status
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: path
-          name: job_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: job_id
+        required: true
+        schema: {type: string, format: uuid}
       responses:
-        "200":
+        '200':
           description: Ingestion job
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/JobStatus"
-        "404":
-          $ref: "#/components/responses/NotFound"
+              schema: {$ref: '#/components/schemas/JobStatus'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getIngestionJobsJobId
+      x-required-roles: [admin]
+      description: 'Authorization: admin-only as specified in API_CONTRACT.md.'
   /retrieval/search:
     post:
       tags: [Retrieval]
       summary: Hybrid lexical and vector retrieval
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/RetrievalRequest"
+            schema: {$ref: '#/components/schemas/RetrievalRequest'}
       responses:
-        "200":
+        '200':
           description: Ranked retrieval results
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/RetrievalResponse"
-        "422":
-          $ref: "#/components/responses/ValidationError"
+              schema: {$ref: '#/components/schemas/RetrievalResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: postRetrievalSearch
+      x-required-roles: [researcher]
   /analysis:
     post:
       tags: [Analysis]
       summary: Queue a 1D–4D analysis
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/AnalysisRequest"
+            schema: {$ref: '#/components/schemas/AnalysisRequest'}
       responses:
-        "202":
+        '202':
           description: Analysis queued
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/AnalysisAccepted"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/ValidationError"
+              schema: {$ref: '#/components/schemas/AnalysisAccepted'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: postAnalysis
+      x-required-roles: [researcher]
+    get:
+      tags: [Analysis]
+      summary: List analyses visible to the caller
+      operationId: getAnalysis
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema: {type: string}
+      - name: created_after
+        in: query
+        required: false
+        schema: {type: string, format: date-time}
+      - name: created_before
+        in: query
+        required: false
+        schema: {type: string, format: date-time}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.'
+      x-required-roles: [researcher]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnalysisList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /analysis/{analysis_id}:
     get:
       tags: [Analysis]
       summary: Get analysis status and result
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: path
-          name: analysis_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: analysis_id
+        required: true
+        schema: {type: string, format: uuid}
       responses:
-        "200":
+        '200':
           description: Analysis
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/AnalysisResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
+              schema: {$ref: '#/components/schemas/AnalysisResponse'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getAnalysisAnalysisId
+      x-required-roles: [researcher]
   /analysis/{analysis_id}/claims:
     get:
       tags: [Evidence]
       summary: List claims and evidence summaries for an analysis
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: path
-          name: analysis_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: analysis_id
+        required: true
+        schema: {type: string, format: uuid}
+      - &id003 {$ref: '#/components/parameters/Limit'}
+      - &id004 {$ref: '#/components/parameters/Offset'}
       responses:
-        "200":
-          description: Claims
+        '200':
+          description: Claims created by the analysis, with status and linked evidence count/summaries.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Claim"
+              schema: {$ref: '#/components/schemas/ClaimList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getAnalysisAnalysisIdClaims
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /analysis/{analysis_id}/hypotheses:
     get:
       tags: [Research]
       summary: List hypotheses for an analysis
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: path
-          name: analysis_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: analysis_id
+        required: true
+        schema: {type: string, format: uuid}
+      - *id003
+      - *id004
       responses:
-        "200":
-          description: Hypotheses
+        '200':
+          description: Hypotheses with rationale, status, limitations and linked evidence.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Hypothesis"
+              schema: {$ref: '#/components/schemas/HypothesisList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getAnalysisAnalysisIdHypotheses
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /claims/{claim_id}:
     get:
       tags: [Evidence]
       summary: Get a claim
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: path
-          name: claim_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: claim_id
+        required: true
+        schema: {type: string, format: uuid}
       responses:
-        "200":
+        '200':
           description: Claim
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Claim"
-        "404":
-          $ref: "#/components/responses/NotFound"
+              schema: {$ref: '#/components/schemas/Claim'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getClaimsClaimId
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /claims/{claim_id}/evidence:
     get:
       tags: [Evidence]
       summary: Get claim evidence
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: path
-          name: claim_id
-          required: true
-          schema: { type: string, format: uuid }
+      - in: path
+        name: claim_id
+        required: true
+        schema: {type: string, format: uuid}
+      - *id003
+      - *id004
       responses:
-        "200":
-          description: Evidence links
+        '200':
+          description: Evidence relationships with source identifiers, locator, URL, verification/review status
+            and permitted excerpt.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ClaimEvidence"
+              schema: {$ref: '#/components/schemas/ClaimEvidenceList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getClaimsClaimIdEvidence
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
+    post:
+      tags: [Evidence]
+      summary: Link existing evidence to a claim
+      operationId: postClaimsClaimIdEvidence
+      description: 'Do not create evidence from an unverified citation string without validating provenance.
+
+
+        Authorization: researcher, reviewer.'
+      parameters:
+      - name: claim_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClaimEvidenceCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClaimEvidence'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
   /procedures:
     get:
       tags: [Research]
       summary: List documented historical procedures
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-        - in: query
-          name: evidence_status
-          schema: { type: string }
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+      - {$ref: '#/components/parameters/Limit'}
+      - {$ref: '#/components/parameters/Offset'}
+      - name: q
+        in: query
+        required: false
+        schema: {type: string}
+      - name: source_status
+        in: query
+        required: false
+        schema: {type: string}
+      - name: modern_clinical_status
+        in: query
+        required: false
+        schema: {type: string}
+      - *id003
+      - *id004
       responses:
-        "200":
+        '200':
           description: Procedure list
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
+              schema: {$ref: '#/components/schemas/ProcedureList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getProcedures
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /instruments:
     get:
       tags: [Research]
       summary: List documented historical instruments
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-        - in: query
-          name: evidence_status
-          schema: { type: string }
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+      - {$ref: '#/components/parameters/Limit'}
+      - {$ref: '#/components/parameters/Offset'}
+      - name: q
+        in: query
+        required: false
+        schema: {type: string}
+      - name: equivalence_status
+        in: query
+        required: false
+        schema: {type: string}
+      - *id003
+      - *id004
       responses:
-        "200":
+        '200':
           description: Instrument list
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
+              schema: {$ref: '#/components/schemas/InstrumentList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      operationId: getInstruments
+      x-required-roles: [researcher, reviewer]
+      description: Reviewers may read material needed for authorized review.
   /reviews:
     post:
       tags: [Research]
       summary: Submit a review for one supported target
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewRequest"
+            schema: {$ref: '#/components/schemas/ReviewRequest'}
       responses:
-        "201":
+        '201':
           description: Review created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id: { type: string, format: uuid }
-                  decision: { type: string }
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                  id: {type: string, format: uuid}
+                  decision: {type: string}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+      operationId: postReviews
+      x-required-roles: [reviewer, admin]
+    get:
+      tags: [Research]
+      summary: List reviews visible to the caller
+      operationId: getReviews
+      parameters:
+      - name: target_type
+        in: query
+        required: false
+        schema: {type: string}
+      - name: target_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: reviewer_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: decision
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: reviewer, admin.
+
+
+        Researchers may view only reviews permitted by project policy.'
+      x-required-roles: [reviewer, admin, researcher]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /dashboard/metrics:
     get:
       tags: [Research]
-      summary: Get measured dashboard metrics
+      summary: Get measured dashboard counts and evaluation metrics
+      operationId: getDashboardMetrics
+      description: 'All counts must be measured. Unrun metrics are null with status not_available.
+
+
+        Authorization: researcher.
+
+
+        System-wide counts may be restricted to administrators according to project privacy policy.'
       security:
-        - cookieAuth: []
+      - cookieAuth: []
       responses:
-        "200":
-          description: Dashboard metrics with definitions and evaluation metadata
+        '200':
+          description: Successful response
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties: true
+              schema: {$ref: '#/components/schemas/DashboardMetrics'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /admin/users:
+    post:
+      tags: [Admin]
+      summary: Create an account
+      operationId: postAdminUsers
+      description: 'The first administrator is bootstrapped by a local CLI command; no public registration endpoint
+        exists.
+
+
+        Authorization: admin.'
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UserCreated'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+    get:
+      tags: [Admin]
+      summary: List accounts
+      operationId: getAdminUsers
+      parameters:
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin.'
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UserList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /admin/users/{user_id}:
+    patch:
+      tags: [Admin]
+      summary: Update account fields
+      operationId: patchAdminUsersUserId
+      description: 'Disabling an account revokes active sessions. Protect the last active administrator.
+
+
+        Authorization: admin.'
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserPatchRequest'}
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /admin/runtime:
+    get:
+      tags: [Admin]
+      summary: Get non-secret runtime status
+      operationId: getAdminRuntime
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin.'
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RuntimeStatus'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /editions:
+    get:
+      tags: [Sources]
+      summary: List editions
+      operationId: getEditions
+      parameters:
+      - name: source_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: language_code
+        in: query
+        required: false
+        schema: {type: string}
+      - name: edition_type
+        in: query
+        required: false
+        schema: {type: string}
+      - name: rights_status
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObjectList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /sources/{source_id}/editions:
+    post:
+      tags: [Sources]
+      summary: Add a documented edition
+      operationId: postSourcesSourceIdEditions
+      parameters:
+      - name: source_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin, authorized curator.'
+      x-required-roles: [admin, authorized curator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EditionCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Edition'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /editions/{edition_id}:
+    get:
+      tags: [Sources]
+      summary: Get edition metadata and provenance
+      operationId: getEditionsEditionId
+      parameters:
+      - name: edition_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Edition'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /editions/{edition_id}/passages:
+    post:
+      tags: [Sources]
+      summary: Add a source passage
+      operationId: postEditionsEditionIdPassages
+      parameters:
+      - name: edition_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin, authorized curator.'
+      x-required-roles: [admin, authorized curator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PassageCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Passage'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /passages/{passage_id}/interpretations:
+    get:
+      tags: [Sources]
+      summary: List typed interpretations for a passage
+      operationId: getPassagesPassageIdInterpretations
+      description: 'Keep translations, glosses, contextual notes, scholarly interpretations and model-generated
+        interpretations as separately typed records.
+
+
+        Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      parameters:
+      - name: passage_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObjectList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      tags: [Sources]
+      summary: Create a translation or interpretation
+      operationId: postPassagesPassageIdInterpretations
+      description: 'Model-generated content includes model identity/version and is unreviewed by default.
+
+
+        Authorization: researcher, authorized curator.'
+      parameters:
+      - name: passage_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, authorized curator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InterpretationCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Interpretation'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /passages/{passage_id}/revisions:
+    get:
+      tags: [Sources]
+      summary: List transcription revisions
+      operationId: getPassagesPassageIdRevisions
+      description: 'Original source text must never be silently overwritten.
+
+
+        Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      parameters:
+      - name: passage_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObjectList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /science/publications:
+    get:
+      tags: [Science]
+      summary: List locally stored scientific publications
+      operationId: getSciencePublications
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema: {type: string}
+      - name: year_from
+        in: query
+        required: false
+        schema: {type: integer}
+      - name: year_to
+        in: query
+        required: false
+        schema: {type: integer}
+      - name: metadata_source
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /science/publications/{publication_id}:
+    get:
+      tags: [Science]
+      summary: Get stored publication metadata
+      operationId: getSciencePublicationsPublicationId
+      parameters:
+      - name: publication_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Publication'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /science/ingestion-jobs:
+    post:
+      tags: [Ingestion]
+      summary: Start scientific literature ingestion
+      operationId: postScienceIngestionJobs
+      description: 'Stores metadata and identifiers by default. Abstract/full-text storage is permitted only when
+        source terms, licence, API policy and applicable law allow it.
+
+
+        Authorization: admin.'
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/IngestionRequest'}
+      responses:
+        '202':
+          description: Job accepted
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/JobAccepted'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /ingestion/jobs:
+    get:
+      tags: [Ingestion]
+      summary: List ingestion jobs
+      operationId: getIngestionJobs
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema: {type: string}
+      - name: source_system
+        in: query
+        required: false
+        schema: {type: string}
+      - name: job_type
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin.'
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObjectList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /admin/embedding-jobs:
+    post:
+      tags: [Admin]
+      summary: Start chunking, embedding or reindex job
+      operationId: postAdminEmbeddingJobs
+      description: 'The selected profile must have a verified model identity and vector dimension. Incompatible
+        dimensions are rejected; embedding spaces are never silently mixed.
+
+
+        Authorization: admin.'
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EmbeddingJobRequest'}
+      responses:
+        '202':
+          description: Job accepted
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/JobAccepted'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /admin/embedding-profiles:
+    get:
+      tags: [Admin]
+      summary: List approved embedding profiles
+      operationId: getAdminEmbeddingProfiles
+      description: 'Do not claim Tamil support without evaluation.
+
+
+        Authorization: admin.'
+      parameters:
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmbeddingProfileList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /evidence/{evidence_item_id}:
+    get:
+      tags: [Evidence]
+      summary: Get evidence record and provenance
+      operationId: getEvidenceEvidenceItemId
+      parameters:
+      - name: evidence_item_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EvidenceItem'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /evidence:
+    post:
+      tags: [Evidence]
+      summary: Create an evidence record
+      operationId: postEvidence
+      description: 'A no-evidence-found record must include search scope and timestamp. Source provenance must be
+        real and documented.
+
+
+        Authorization: researcher, authorized curator.'
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, authorized curator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EvidenceCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EvidenceItem'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /evidence/{evidence_item_id}/verify:
+    post:
+      tags: [Evidence]
+      summary: Verify an evidence record
+      operationId: postEvidenceEvidenceItemIdVerify
+      description: 'Record who checked the evidence and when. expert_reviewed requires an authorized reviewer and
+        actual review.
+
+
+        Authorization: reviewer, admin.'
+      parameters:
+      - name: evidence_item_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [reviewer, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EvidenceVerifyRequest'}
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EvidenceItem'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /hypotheses/{hypothesis_id}:
+    get:
+      tags: [Research]
+      summary: Get hypothesis and evidence links
+      operationId: getHypothesesHypothesisId
+      parameters:
+      - name: hypothesis_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hypothesis'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      tags: [Research]
+      summary: Update hypothesis review status and notes
+      operationId: patchHypothesesHypothesisId
+      description: 'Supported does not mean independently replicated scientific discovery.
+
+
+        Authorization: reviewer, admin.'
+      parameters:
+      - name: hypothesis_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [reviewer, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/HypothesisPatchRequest'}
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hypothesis'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /hypotheses/{hypothesis_id}/evidence:
+    post:
+      tags: [Research]
+      summary: Link evidence to a hypothesis
+      operationId: postHypothesesHypothesisIdEvidence
+      parameters:
+      - name: hypothesis_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher, reviewer.'
+      x-required-roles: [researcher, reviewer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/HypothesisEvidenceRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObject'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /procedures/{procedure_id}:
+    get:
+      tags: [Research]
+      summary: Get historical procedure documentation
+      operationId: getProceduresProcedureId
+      description: 'Documentary research only; do not return step-by-step actionable surgical instructions.
+
+
+        Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      parameters:
+      - name: procedure_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Procedure'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /instruments/{instrument_id}:
+    get:
+      tags: [Research]
+      summary: Get historical instrument documentation
+      operationId: getInstrumentsInstrumentId
+      description: 'Do not present analogy as proof of modern equivalence.
+
+
+        Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      parameters:
+      - name: instrument_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Instrument'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /procedures/{procedure_id}/instruments:
+    get:
+      tags: [Research]
+      summary: List instruments linked to a procedure
+      operationId: getProceduresProcedureIdInstruments
+      description: 'Include evidence and provenance for each relationship.
+
+
+        Authorization: researcher.
+
+
+        Reviewers may read material needed for authorized review.'
+      parameters:
+      - name: procedure_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      x-required-roles: [researcher, reviewer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObjectList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /reviews/{review_id}:
+    get:
+      tags: [Research]
+      summary: Get review record
+      operationId: getReviewsReviewId
+      parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: reviewer, admin.
+
+
+        Researchers may view only reviews permitted by project policy.'
+      x-required-roles: [reviewer, admin, researcher]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Review'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /bookmarks:
+    get:
+      tags: [Research]
+      summary: List caller bookmarks
+      operationId: getBookmarks
+      parameters:
+      - name: target_type
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BookmarkList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      x-authentication-required: true
+    post:
+      tags: [Research]
+      summary: Create bookmark
+      operationId: postBookmarks
+      description: 'Duplicate bookmarks return 409 or one explicitly documented idempotent 200 behavior; the implementation
+        must choose one policy.
+
+
+        Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BookmarkCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Bookmark'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+        '409': {description: A bookmark for this user/target already exists when the implementation uses conflict
+            semantics.}
+      x-authentication-required: true
+  /bookmarks/{bookmark_id}:
+    delete:
+      tags: [Research]
+      summary: Delete caller bookmark
+      operationId: deleteBookmarksBookmarkId
+      parameters:
+      - name: bookmark_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      responses:
+        '204': {description: Successful operation; no response body.}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+      x-authentication-required: true
+  /annotations:
+    get:
+      tags: [Research]
+      summary: List caller annotations
+      operationId: getAnnotations
+      parameters:
+      - name: passage_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: analysis_run_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: claim_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      - name: visibility
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnnotationList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      x-authentication-required: true
+    post:
+      tags: [Research]
+      summary: Create annotation
+      operationId: postAnnotations
+      description: 'Exactly one of passage_id, analysis_run_id or claim_id is required. Anchors must be within stored
+        text when supplied.
+
+
+        Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AnnotationCreateRequest'}
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Annotation'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+      x-authentication-required: true
+  /annotations/{annotation_id}:
+    patch:
+      tags: [Research]
+      summary: Update owned annotation
+      operationId: patchAnnotationsAnnotationId
+      description: 'Only the owner may edit unless an explicitly authorized admin moderation policy applies.
+
+
+        Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      parameters:
+      - name: annotation_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AnnotationPatchRequest'}
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Annotation'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+      x-authentication-required: true
+    delete:
+      tags: [Research]
+      summary: Delete owned annotation
+      operationId: deleteAnnotationsAnnotationId
+      description: 'Only the owner or authorized admin may delete.
+
+
+        Authorization: researcher.
+
+
+        Authenticated; resource ownership and visibility rules are enforced by the backend.'
+      parameters:
+      - name: annotation_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      security:
+      - cookieAuth: []
+      responses:
+        '204': {description: Successful operation; no response body.}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+      x-authentication-required: true
+  /admin/ingestion-jobs:
+    get:
+      tags: [Admin]
+      summary: List ingestion jobs for administration
+      operationId: getAdminIngestionJobs
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema: {type: string}
+      - name: source_system
+        in: query
+        required: false
+        schema: {type: string}
+      - name: job_type
+        in: query
+        required: false
+        schema: {type: string}
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      description: 'Authorization: admin.'
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenericObjectList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: List audit log entries
+      operationId: getAdminAuditLogs
+      description: 'Audit rows are append-only; do not expose secrets or unrelated personal data.
+
+
+        Authorization: admin.
+
+
+        The contract names actor/action/entity/date-range filters but does not define their exact query parameter
+        names; do not implement guessed names without owner clarification.'
+      parameters:
+      - *id001
+      - *id002
+      security:
+      - cookieAuth: []
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditLogList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
 components:
   securitySchemes:
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: session
+    cookieAuth: {type: apiKey, in: cookie, name: session}
   parameters:
     Limit:
       in: query
       name: limit
-      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      schema: {type: integer, minimum: 1, maximum: 100, default: 20}
     Offset:
       in: query
       name: offset
-      schema: { type: integer, minimum: 0, default: 0 }
+      schema: {type: integer, minimum: 0, default: 0}
   responses:
     NotFound:
       description: Resource not found
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
     Unauthorized:
       description: Authentication required or invalid
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
     Forbidden:
       description: Insufficient permissions
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
     Conflict:
       description: Resource conflict
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
     ValidationError:
       description: Request validation error
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
     DependencyUnavailable:
       description: External provider unavailable
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
   schemas:
     ErrorResponse:
       type: object
@@ -532,248 +1779,730 @@ components:
       properties:
         error:
           type: object
-          required: [code, message]
+          required: [code, message, request_id]
           properties:
-            code: { type: string }
-            message: { type: string }
-            request_id: { type: string, format: uuid }
+            code:
+              type: string
+              enum:
+              - VALIDATION_ERROR
+              - UNAUTHORIZED
+              - FORBIDDEN
+              - NOT_FOUND
+              - CONFLICT
+              - RATE_LIMITED
+              - DEPENDENCY_UNAVAILABLE
+              - MODEL_UNAVAILABLE
+              - PROVIDER_UNAVAILABLE
+              - LICENCE_RESTRICTED
+              - JOB_FAILED
+              - INTERNAL_ERROR
+            message: {type: string}
+            request_id: {type: string}
     HealthResponse:
       type: object
+      required: [status, database, ollama, embedding_model, scientific_providers, version, checked_at]
       properties:
-        status: { type: string }
-        database: { type: string }
-        ollama: { type: string }
+        status: {type: string}
+        database: {type: string}
+        ollama: {type: string}
+        embedding_model: {type: string}
         scientific_providers:
           type: object
-          additionalProperties: { type: string }
-        version: { type: string }
-    RegisterRequest:
-      type: object
-      required: [email, display_name, password]
-      properties:
-        email: { type: string, format: email }
-        display_name: { type: string, minLength: 1 }
-        password: { type: string, minLength: 12, writeOnly: true }
+          required: [pubmed, europe_pmc]
+          properties:
+            pubmed: {type: string}
+            europe_pmc: {type: string}
+        version: {type: string}
+        checked_at: {type: string, format: date-time}
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [username_or_email, password]
       properties:
-        email: { type: string, format: email }
-        password: { type: string, writeOnly: true }
+        username_or_email: {type: string, minLength: 1}
+        password: {type: string, writeOnly: true}
     User:
       type: object
+      required: [id, username, email, display_name, role, status]
       properties:
-        id: { type: string, format: uuid }
-        email: { type: string, format: email }
-        display_name: { type: string }
-        role: { type: string, enum: [researcher, admin] }
+        id: {type: string, format: uuid}
+        username: {type: string}
+        email: {type: string, format: email}
+        display_name: {type: string}
+        role:
+          type: string
+          enum: [admin, researcher, reviewer]
+        status:
+          type: string
+          enum: [active, disabled, pending]
     UserResponse:
       type: object
       properties:
-        user: { $ref: "#/components/schemas/User" }
+        user: {$ref: '#/components/schemas/User'}
     LiterarySource:
       type: object
+      required: [id, canonical_title, attribution_confidence, source_status]
       properties:
-        id: { type: string, format: uuid }
-        canonical_title: { type: string }
-        author_attribution: { type: string, nullable: true }
-        tradition: { type: string, nullable: true }
-        language_code: { type: string }
-        attribution_status: { type: string }
+        id: {type: string, format: uuid}
+        canonical_title: {type: string}
+        title_ta:
+          type: [string, 'null']
+        title_en:
+          type: [string, 'null']
+        attributed_author:
+          type: [string, 'null']
+        attribution_confidence: {type: string}
+        genre:
+          type: [string, 'null']
+        tradition_or_collection:
+          type: [string, 'null']
+        source_status: {type: string}
+        editions:
+          type: array
+          items: {$ref: '#/components/schemas/Edition'}
+          description: Edition summaries, included on source detail responses.
     SourceList:
       type: object
+      required: [items, limit, offset, total]
       properties:
         items:
           type: array
-          items: { $ref: "#/components/schemas/LiterarySource" }
-        limit: { type: integer }
-        offset: { type: integer }
-        total: { type: integer, nullable: true }
+          items: {$ref: '#/components/schemas/LiterarySource'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
     Passage:
       type: object
+      required:
+      - id
+      - source_edition_id
+      - sequence_number
+      - locator
+      - original_text
+      - language_code
+      - transcription_method
+      - status
+      - created_at
       properties:
-        id: { type: string, format: uuid }
-        edition_id: { type: string, format: uuid }
-        text_original: { type: string }
-        translation_text: { type: string, nullable: true }
-        section_ref: { type: string, nullable: true }
-        page_number: { type: integer, nullable: true }
-        verification_status: { type: string }
-        content_hash: { type: string }
+        id: {type: string, format: uuid}
+        source_edition_id: {type: string, format: uuid}
+        passage_code:
+          type: [string, 'null']
+        sequence_number: {type: integer, minimum: 1}
+        locator: {type: string}
+        original_text: {type: string}
+        normalized_text:
+          type: [string, 'null']
+        language_code: {type: string}
+        transcription_method: {type: string}
+        transcription_confidence:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 1
+        status: {type: string}
+        text_checksum:
+          type: [string, 'null']
+        created_at: {type: string, format: date-time}
     PassageList:
       type: object
+      required: [items, limit, offset, total]
       properties:
         items:
           type: array
-          items: { $ref: "#/components/schemas/Passage" }
-        limit: { type: integer }
-        offset: { type: integer }
-        total: { type: integer, nullable: true }
+          items: {$ref: '#/components/schemas/Passage'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
     PublicationSearchResponse:
       type: object
+      required: [query, items, limit, offset, total, provider_status]
       properties:
-        query: { type: string }
+        query: {type: string}
         items:
           type: array
           items:
             type: object
+            required: [title, metadata_source, metadata_retrieved_at, local_record]
             properties:
-              id: { type: string, format: uuid, nullable: true }
-              title: { type: string }
-              pmid: { type: string, nullable: true }
-              pmcid: { type: string, nullable: true }
-              doi: { type: string, nullable: true }
-              publication_year: { type: integer, nullable: true }
-              journal: { type: string, nullable: true }
-              source_url: { type: string, format: uri, nullable: true }
-              provider: { type: string }
-              retrieved_at: { type: string, format: date-time }
-        limit: { type: integer }
-        offset: { type: integer }
-        total: { type: integer, nullable: true }
-        provider_status: { type: string }
+              id:
+                type: [string, 'null']
+                format: uuid
+              title: {type: string}
+              doi:
+                type: [string, 'null']
+              pmid:
+                type: [string, 'null']
+              pmcid:
+                type: [string, 'null']
+              europe_pmc_id:
+                type: [string, 'null']
+              year:
+                type: [integer, 'null']
+              journal_or_repository:
+                type: [string, 'null']
+              canonical_url:
+                type: [string, 'null']
+                format: uri
+              metadata_source: {type: string}
+              metadata_retrieved_at: {type: string, format: date-time}
+              local_record: {type: boolean}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+        provider_status:
+          type: object
+          additionalProperties: {type: string}
     IngestionRequest:
       type: object
-      required: [provider, job_type, query]
+      required: [source_system, job_type, query]
       properties:
-        provider: { type: string, enum: [pubmed, europe_pmc] }
-        job_type: { type: string }
-        query: { type: string, minLength: 1 }
-        limit: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        source_system:
+          type: string
+          enum: [pubmed, europe_pmc]
+        job_type: {type: string}
+        query: {type: string, minLength: 1}
+        limit: {type: integer, minimum: 1, maximum: 100, default: 20}
     JobAccepted:
       type: object
+      required: [job_id, status, status_url]
       properties:
-        job_id: { type: string, format: uuid }
-        status: { type: string, enum: [queued] }
-        status_url: { type: string }
+        job_id: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [queued]
+        status_url: {type: string}
     JobStatus:
       type: object
+      required:
+      - id
+      - status
+      - source_system
+      - job_type
+      - records_seen
+      - records_created
+      - records_updated
+      - records_skipped
+      - error_count
       properties:
-        job_id: { type: string, format: uuid }
-        status: { type: string, enum: [queued, running, completed, failed, cancelled] }
-        records_processed: { type: integer }
-        records_failed: { type: integer }
-        error_summary: { type: string, nullable: true }
-        started_at: { type: string, format: date-time, nullable: true }
-        completed_at: { type: string, format: date-time, nullable: true }
+        id: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+        source_system: {type: string}
+        job_type: {type: string}
+        records_seen: {type: integer, minimum: 0}
+        records_created: {type: integer, minimum: 0}
+        records_updated: {type: integer, minimum: 0}
+        records_skipped: {type: integer, minimum: 0}
+        error_count: {type: integer, minimum: 0}
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        error_summary:
+          type: [string, 'null']
     RetrievalRequest:
       type: object
       required: [query]
       properties:
-        query: { type: string, minLength: 1 }
+        query: {type: string, minLength: 1}
         source_ids:
           type: array
-          items: { type: string, format: uuid }
-        include_literary_passages: { type: boolean, default: true }
-        include_scientific_publications: { type: boolean, default: true }
-        top_k: { type: integer, minimum: 1, maximum: 50, default: 10 }
-        ranking_method: { type: string, enum: [rrf], default: rrf }
+          items: {type: string, format: uuid}
+        include_literary_passages: {type: boolean, default: true}
+        include_scientific_publications: {type: boolean, default: true}
+        top_k: {type: integer, minimum: 1, maximum: 50, default: 10}
+        ranking_method:
+          type: string
+          enum: [rrf, lexical, vector]
+          default: rrf
     RetrievalResponse:
       type: object
+      required: [query, ranking_method, embedding_profile_id, warnings, results]
       properties:
-        query: { type: string }
-        ranking_method: { type: string }
+        query: {type: string}
+        ranking_method:
+          type: string
+          enum: [rrf, lexical, vector]
+        embedding_profile_id:
+          type: [string, 'null']
+          format: uuid
+        warnings:
+          type: array
+          items: {type: string}
         results:
           type: array
           items:
             type: object
+            required: [result_type, title, excerpt, rrf_score]
             properties:
-              result_type: { type: string, enum: [literary_passage, scientific_publication] }
-              source_id: { type: string, format: uuid, nullable: true }
-              passage_id: { type: string, format: uuid, nullable: true }
-              publication_id: { type: string, format: uuid, nullable: true }
-              title: { type: string }
-              excerpt: { type: string }
-              source_url: { type: string, format: uri, nullable: true }
-              source_locator: { type: string, nullable: true }
-              lexical_rank: { type: integer, nullable: true }
-              dense_rank: { type: integer, nullable: true }
-              rrf_score: { type: number }
+              result_type:
+                type: string
+                enum: [literary_passage, scientific_publication]
+              source_id:
+                type: [string, 'null']
+                format: uuid
+              edition_id:
+                type: [string, 'null']
+                format: uuid
+              passage_id:
+                type: [string, 'null']
+                format: uuid
+              publication_id:
+                type: [string, 'null']
+                format: uuid
+              title: {type: string}
+              excerpt: {type: string}
+              source_url:
+                type: [string, 'null']
+                format: uri
+              source_locator:
+                type: [string, 'null']
+              lexical_rank:
+                type: [integer, 'null']
+              dense_rank:
+                type: [integer, 'null']
+              rrf_score: {type: number}
     AnalysisRequest:
       type: object
       required: [query]
       properties:
-        query: { type: string, minLength: 1 }
+        query: {type: string, minLength: 1}
         passage_ids:
           type: array
-          items: { type: string, format: uuid }
+          items: {type: string, format: uuid}
         dimensions:
           type: array
+          minItems: 1
           uniqueItems: true
-          items: { type: string, enum: ["1D", "2D", "3D", "4D"] }
-          default: ["1D", "2D", "3D", "4D"]
-        include_scientific_evidence: { type: boolean, default: true }
-        generate_hypotheses: { type: boolean, default: true }
-        max_hypotheses: { type: integer, minimum: 0, maximum: 20, default: 5 }
+          items:
+            type: string
+            enum: [1D, 2D, 3D, 4D]
+          default: [1D, 2D, 3D, 4D]
+        include_scientific_evidence: {type: boolean, default: true}
+        generate_hypotheses: {type: boolean, default: true}
+        max_hypotheses: {type: integer, minimum: 0, maximum: 10, default: 5}
     AnalysisAccepted:
       type: object
+      required: [analysis_id, status, status_url]
       properties:
-        analysis_id: { type: string, format: uuid }
-        status: { type: string, enum: [queued] }
-        status_url: { type: string }
+        analysis_id: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [queued]
+        status_url: {type: string}
     AnalysisResponse:
       type: object
+      description: Only results actually generated are returned; missing dimensions are not fabricated.
       properties:
-        analysis_id: { type: string, format: uuid }
-        status: { type: string, enum: [queued, running, completed, failed, cancelled] }
+        id: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, cancelled]
+        query_text: {type: string}
         dimensions:
           type: object
           properties:
-            "1D": { type: object, additionalProperties: true }
-            "2D": { type: object, additionalProperties: true }
-            "3D": { type: object, additionalProperties: true }
-            "4D": { type: object, additionalProperties: true }
+            1D: {type: object, additionalProperties: true}
+            2D: {type: object, additionalProperties: true}
+            3D: {type: object, additionalProperties: true}
+            4D: {type: object, additionalProperties: true}
         claim_ids:
           type: array
-          items: { type: string, format: uuid }
+          items: {type: string, format: uuid}
         hypothesis_ids:
           type: array
-          items: { type: string, format: uuid }
-        limitations:
-          type: array
-          items: { type: string }
-        created_at: { type: string, format: date-time }
-    Claim:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        analysis_id: { type: string, format: uuid }
-        claim_text: { type: string }
-        claim_type: { type: string }
-        evidence_status: { type: string }
-        confidence_score: { type: number, minimum: 0, maximum: 1, nullable: true }
-        verification_status: { type: string }
+          items: {type: string, format: uuid}
+        model:
+          type: object
+          properties:
+            provider: {type: string}
+            name: {type: string}
+            version_or_digest:
+              type: [string, 'null']
+        prompt_version: {type: string}
+        created_at: {type: string, format: date-time}
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+    Claim: {type: object, description: 'Claim text, type, origin, dimension, status, uncertainty, analysis ID and
+        linked source/evidence counts.', additionalProperties: true}
     ClaimEvidence:
       type: object
+      description: Evidence relationship with provenance and verification/review state.
       properties:
-        evidence_item_id: { type: string, format: uuid }
-        evidence_type: { type: string }
-        excerpt: { type: string, nullable: true }
-        source_url: { type: string, format: uri, nullable: true }
-        locator: { type: string, nullable: true }
-        relationship: { type: string, enum: [supports, contradicts, qualifies, mentions, irrelevant] }
-        verification_status: { type: string }
-        review_status: { type: string }
-    Hypothesis:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        analysis_id: { type: string, format: uuid }
-        hypothesis_text: { type: string }
-        rationale: { type: string }
-        testability_status: { type: string }
-        novelty_status: { type: string }
-        review_status: { type: string }
-        proposed_validation_method: { type: string, nullable: true }
-        limitations: { type: string, nullable: true }
+        evidence_item_id: {type: string, format: uuid}
+        evidence_type: {type: string}
+        excerpt:
+          type: [string, 'null']
+        source_url:
+          type: [string, 'null']
+          format: uri
+        locator:
+          type: [string, 'null']
+        relationship:
+          type: string
+          enum: [supports, contradicts, qualifies, contextualizes]
+        verification_status: {type: string}
+        review_status: {type: string}
+    Hypothesis: {type: object, description: 'Hypothesis text, rationale, testability/novelty notes, status, limitations
+        and evidence links.', additionalProperties: true}
     ReviewRequest:
       type: object
-      required: [decision]
+      required: [target_type, target_id, decision]
       properties:
-        claim_id: { type: string, format: uuid, nullable: true }
-        hypothesis_id: { type: string, format: uuid, nullable: true }
-        interpretation_id: { type: string, format: uuid, nullable: true }
-        procedure_id: { type: string, format: uuid, nullable: true }
-        instrument_id: { type: string, format: uuid, nullable: true }
-        decision: { type: string, enum: [approved, rejected, needs_revision, inconclusive] }
-        comments: { type: string, nullable: true }
+        target_type:
+          type: string
+          enum: [passage, interpretation, claim, evidence_item, hypothesis, historical_procedure, instrument]
+        target_id: {type: string, format: uuid}
+        decision:
+          type: string
+          enum: [approve, revise, reject, needs_expert]
+        review_notes: {type: string}
+    UserCreated:
+      type: object
+      required: [id, username, email, display_name, role, status, must_reset_password]
+      properties:
+        id: {type: string, format: uuid}
+        username: {type: string}
+        email: {type: string, format: email}
+        display_name: {type: string}
+        role:
+          type: string
+          enum: [admin, researcher, reviewer]
+        status:
+          type: string
+          enum: [active, disabled, pending]
+        must_reset_password: {type: boolean, const: true}
+    UserCreateRequest:
+      type: object
+      required: [username, email, display_name, role, temporary_password]
+      properties:
+        username: {type: string, minLength: 1}
+        email: {type: string, format: email}
+        display_name: {type: string, minLength: 1}
+        role:
+          type: string
+          enum: [admin, researcher, reviewer]
+        temporary_password: {type: string, writeOnly: true}
+    UserPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        role:
+          type: string
+          enum: [admin, researcher, reviewer]
+        status:
+          type: string
+          enum: [active, disabled, pending]
+        display_name: {type: string, minLength: 1}
+        must_reset_password: {type: boolean}
+    RuntimeStatus: {type: object, description: Non-secret runtime information described in API_CONTRACT.md. Exact
+        properties are returned only when actually configured and known., additionalProperties: true}
+    SourceCreateRequest: {type: object, description: Source metadata fields as defined by the canonical schema;
+        no illustrative source is seeded., additionalProperties: true}
+    SourcePatchRequest: {type: object, minProperties: 1, description: Permitted source metadata updates. Attribution/status
+        changes must be auditable., additionalProperties: true}
+    Edition: {type: object, description: 'Edition metadata, provenance, identifiers, source URL, repository and
+        rights status/notes.', additionalProperties: true}
+    EditionCreateRequest: {type: object, description: Documented edition metadata and provenance. Fields are constrained
+        by DATABASE_SCHEMA.md., additionalProperties: true}
+    PassageCreateRequest:
+      type: object
+      required: [locator, original_text, language_code, transcription_method]
+      properties:
+        locator: {type: string, minLength: 1}
+        original_text: {type: string, minLength: 1}
+        language_code: {type: string}
+        transcription_method: {type: string}
+        transcription_confidence:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 1
+    Interpretation: {type: object, description: 'Typed translation, gloss, contextual note or interpretation. Includes
+        language, author/model, review status and source reference when available.', additionalProperties: true}
+    InterpretationCreateRequest: {type: object, description: Translation or interpretation fields. Model-generated
+        content must include model identity/version and be unreviewed by default., additionalProperties: true}
+    Revision: {type: object, description: A transcription revision record; original text is never silently overwritten.,
+      additionalProperties: true}
+    Publication: {type: object, description: 'Stored publication metadata, permitted abstract if available, authors,
+        identifiers, canonical URL, licence/storage status and retrieval timestamps.', additionalProperties: true}
+    PublicationList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Publication'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    EmbeddingJobRequest: {type: object, description: 'The contract specifies the selected approved embedding profile
+        and job purpose, but does not yet define the exact request field names. Finalize these before implementing
+        this request schema.', additionalProperties: true}
+    EmbeddingProfileList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {type: object, description: 'Approved profile metadata, model/version/digest, dimensions, language
+              coverage, evaluation summary and active status.', additionalProperties: true}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    AnalysisList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AnalysisResponse'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    ClaimEvidenceCreateRequest:
+      type: object
+      required: [evidence_item_id, relation, rationale, strength]
+      properties:
+        evidence_item_id: {type: string, format: uuid}
+        relation:
+          type: string
+          enum: [supports, contradicts, qualifies, contextualizes]
+        rationale: {type: string, minLength: 1}
+        strength: {type: string, description: Evidence relationship strength; unassessed is the documented initial
+            value.}
+    EvidenceItem: {type: object, description: 'Evidence record with provenance, verification status, source identifiers
+        and permitted excerpt.', additionalProperties: true}
+    EvidenceCreateRequest: {type: object, description: 'Evidence record sourced from a real source identifier, passage,
+        publication or documented other evidence.', additionalProperties: true}
+    EvidenceVerifyRequest: {type: object, description: The contract requires a verification status and reviewer
+        identity/time to be recorded; exact request field names need to be finalized before implementation., additionalProperties: true}
+    HypothesisEvidenceRequest: {type: object, description: The contract requires an evidence relationship but does
+        not yet define the complete request field schema., additionalProperties: true}
+    HypothesisPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        review_status:
+          type: string
+          enum: [proposed, under_review, supported, contradicted, inconclusive, withdrawn]
+        review_notes:
+          type: [string, 'null']
+    Procedure: {type: object, description: 'Documentary description, source/evidence links, source status and safety/limitations
+        note; no actionable surgical instructions.', additionalProperties: true}
+    Instrument: {type: object, description: 'Historical name/description, possible modern-equivalent claim and equivalence
+        status.', additionalProperties: true}
+    Review: {type: object, description: Append-only review record., additionalProperties: true}
+    BookmarkCreateRequest:
+      type: object
+      required: [target_type, target_id]
+      properties:
+        target_type: {type: string}
+        target_id: {type: string, format: uuid}
+        label:
+          type: [string, 'null']
+    Bookmark: {type: object, description: Bookmark owned by the authenticated user., additionalProperties: true}
+    AnnotationCreateRequest:
+      type: object
+      required: [body, visibility]
+      properties:
+        passage_id:
+          type: [string, 'null']
+          format: uuid
+        analysis_run_id:
+          type: [string, 'null']
+          format: uuid
+        claim_id:
+          type: [string, 'null']
+          format: uuid
+        body: {type: string, minLength: 1}
+        anchor_start:
+          type: [integer, 'null']
+          minimum: 0
+        anchor_end:
+          type: [integer, 'null']
+          minimum: 0
+        visibility:
+          type: string
+          enum: [private, project]
+    AnnotationPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        body: {type: string, minLength: 1}
+        anchor_start:
+          type: [integer, 'null']
+          minimum: 0
+        anchor_end:
+          type: [integer, 'null']
+          minimum: 0
+        visibility:
+          type: string
+          enum: [private, project]
+    Annotation: {type: object, description: 'Annotation with owner, target and visibility metadata.', additionalProperties: true}
+    DashboardMetrics:
+      type: object
+      required: [generated_at, counts, evaluation]
+      properties:
+        generated_at: {type: string, format: date-time}
+        counts:
+          type: object
+          required: [literary_sources, passages, scientific_publications, analysis_runs, claims, evidence_items,
+            hypotheses]
+          properties:
+            literary_sources: {type: integer, minimum: 0}
+            passages: {type: integer, minimum: 0}
+            scientific_publications: {type: integer, minimum: 0}
+            analysis_runs: {type: integer, minimum: 0}
+            claims: {type: integer, minimum: 0}
+            evidence_items: {type: integer, minimum: 0}
+            hypotheses: {type: integer, minimum: 0}
+        evaluation:
+          type: object
+          required: [unsupported_claim_rate, citation_validity_rate, retrieval_recall_at_k, evaluation_set_id, evaluated_at,
+            status]
+          properties:
+            unsupported_claim_rate:
+              type: [number, 'null']
+            citation_validity_rate:
+              type: [number, 'null']
+            retrieval_recall_at_k:
+              type: [number, 'null']
+            evaluation_set_id:
+              type: [string, 'null']
+            evaluated_at:
+              type: [string, 'null']
+              format: date-time
+            status: {type: string}
+    AuditLogList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {type: object, description: Paginated audit entry; excludes secrets and unrelated personal data.,
+            additionalProperties: true}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    GenericObject: {type: object, description: The contract specifies the resource purpose but does not yet define
+        a complete field-level response schema., additionalProperties: true}
+    GenericObjectList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/GenericObject'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    UserList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/User'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    ClaimList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Claim'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    HypothesisList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Hypothesis'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    ClaimEvidenceList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ClaimEvidence'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    ProcedureList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Procedure'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    InstrumentList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Instrument'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    ReviewList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Review'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    BookmarkList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Bookmark'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
+    AnnotationList:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Annotation'}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        total:
+          type: [integer, 'null']
