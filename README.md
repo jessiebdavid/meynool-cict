@@ -96,7 +96,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints, usually `http://127.0.0.1:5173`.
+Open the local URL Vite prints, usually `http://127.0.0.1:4319`.
 
 ### 6. Run backend tests
 

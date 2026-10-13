@@ -7,6 +7,9 @@ from sqlalchemy.exc import SQLAlchemyError
 class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str = "postgresql+psycopg://postgres:local_dev_change_me@127.0.0.1:5432/meynool"
+    # Bound the readiness probe so an unreachable database fails fast instead of
+    # hanging the worker. Seconds; overridable via DATABASE_CONNECT_TIMEOUT.
+    database_connect_timeout: int = 5
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 
 
@@ -31,7 +34,11 @@ def health() -> dict[str, str]:
 def readiness() -> dict[str, str]:
     """Check whether the configured PostgreSQL database is reachable."""
     try:
-        engine = create_engine(settings.database_url, pool_pre_ping=True)
+        engine = create_engine(
+            settings.database_url,
+            pool_pre_ping=True,
+            connect_args={"connect_timeout": settings.database_connect_timeout},
+        )
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         engine.dispose()
