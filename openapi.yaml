@@ -1,0 +1,779 @@
+openapi: 3.1.0
+info:
+  title: Meynool — Tamil Literary Knowledge and Scientific Evidence Intelligence Platform API
+  version: 0.1.0
+  description: Finalized contract baseline. Admin-created accounts only; no public registration. Implementations must not treat examples as real scientific data.
+servers:
+  - url: http://127.0.0.1:8000/api/v1
+    description: Local development
+tags:
+  - name: Health
+  - name: Auth
+  - name: Admin
+  - name: Ingestion
+  - name: Sources
+  - name: Science
+  - name: Retrieval
+  - name: Analysis
+  - name: Evidence
+  - name: Research
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check API and dependency health
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in to local researcher account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      security:
+        - cookieAuth: []
+      responses:
+        "204":
+          description: Logged out
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /sources:
+    get:
+      tags: [Sources]
+      summary: List literary sources
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: tradition
+          schema: { type: string }
+        - in: query
+          name: language_code
+          schema: { type: string, default: ta }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Source list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceList"
+  /sources/{source_id}:
+    get:
+      tags: [Sources]
+      summary: Get literary source
+      parameters:
+        - in: path
+          name: source_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiterarySource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /passages:
+    get:
+      tags: [Sources]
+      summary: Search passages
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: source_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: edition_id
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Passage list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassageList"
+  /passages/{passage_id}:
+    get:
+      tags: [Sources]
+      summary: Get passage and provenance
+      parameters:
+        - in: path
+          name: passage_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Passage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passage"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /science/search:
+    get:
+      tags: [Science]
+      summary: Search scientific literature
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string, minLength: 1 }
+        - in: query
+          name: provider
+          schema:
+            type: string
+            enum: [pubmed, europe_pmc, all]
+            default: all
+        - in: query
+          name: year_from
+          schema: { type: integer, minimum: 1800, maximum: 2200 }
+        - in: query
+          name: year_to
+          schema: { type: integer, minimum: 1800, maximum: 2200 }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Scientific search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicationSearchResponse"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /ingestion/jobs:
+    post:
+      tags: [Science]
+      summary: Start authorized ingestion job
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestionRequest"
+      responses:
+        "202":
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /ingestion/jobs/{job_id}:
+    get:
+      tags: [Science]
+      summary: Get ingestion job status
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Ingestion job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /retrieval/search:
+    post:
+      tags: [Retrieval]
+      summary: Hybrid lexical and vector retrieval
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetrievalRequest"
+      responses:
+        "200":
+          description: Ranked retrieval results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetrievalResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /analysis:
+    post:
+      tags: [Analysis]
+      summary: Queue a 1D–4D analysis
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisRequest"
+      responses:
+        "202":
+          description: Analysis queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /analysis/{analysis_id}:
+    get:
+      tags: [Analysis]
+      summary: Get analysis status and result
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: analysis_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /analysis/{analysis_id}/claims:
+    get:
+      tags: [Evidence]
+      summary: List claims and evidence summaries for an analysis
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: analysis_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Claims
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Claim"
+  /analysis/{analysis_id}/hypotheses:
+    get:
+      tags: [Research]
+      summary: List hypotheses for an analysis
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: analysis_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Hypotheses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Hypothesis"
+  /claims/{claim_id}:
+    get:
+      tags: [Evidence]
+      summary: Get a claim
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: claim_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Claim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Claim"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /claims/{claim_id}/evidence:
+    get:
+      tags: [Evidence]
+      summary: Get claim evidence
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: claim_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Evidence links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ClaimEvidence"
+  /procedures:
+    get:
+      tags: [Research]
+      summary: List documented historical procedures
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: evidence_status
+          schema: { type: string }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Procedure list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  /instruments:
+    get:
+      tags: [Research]
+      summary: List documented historical instruments
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: evidence_status
+          schema: { type: string }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Instrument list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  /reviews:
+    post:
+      tags: [Research]
+      summary: Submit a review for one supported target
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  decision: { type: string }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /dashboard/metrics:
+    get:
+      tags: [Research]
+      summary: Get measured dashboard metrics
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Dashboard metrics with definitions and evaluation metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+  parameters:
+    Limit:
+      in: query
+      name: limit
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Offset:
+      in: query
+      name: offset
+      schema: { type: integer, minimum: 0, default: 0 }
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    ValidationError:
+      description: Request validation error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    DependencyUnavailable:
+      description: External provider unavailable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string, format: uuid }
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string }
+        database: { type: string }
+        ollama: { type: string }
+        scientific_providers:
+          type: object
+          additionalProperties: { type: string }
+        version: { type: string }
+    RegisterRequest:
+      type: object
+      required: [email, display_name, password]
+      properties:
+        email: { type: string, format: email }
+        display_name: { type: string, minLength: 1 }
+        password: { type: string, minLength: 12, writeOnly: true }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, writeOnly: true }
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        display_name: { type: string }
+        role: { type: string, enum: [researcher, admin] }
+    UserResponse:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+    LiterarySource:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        canonical_title: { type: string }
+        author_attribution: { type: string, nullable: true }
+        tradition: { type: string, nullable: true }
+        language_code: { type: string }
+        attribution_status: { type: string }
+    SourceList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/LiterarySource" }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer, nullable: true }
+    Passage:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        edition_id: { type: string, format: uuid }
+        text_original: { type: string }
+        translation_text: { type: string, nullable: true }
+        section_ref: { type: string, nullable: true }
+        page_number: { type: integer, nullable: true }
+        verification_status: { type: string }
+        content_hash: { type: string }
+    PassageList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Passage" }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer, nullable: true }
+    PublicationSearchResponse:
+      type: object
+      properties:
+        query: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid, nullable: true }
+              title: { type: string }
+              pmid: { type: string, nullable: true }
+              pmcid: { type: string, nullable: true }
+              doi: { type: string, nullable: true }
+              publication_year: { type: integer, nullable: true }
+              journal: { type: string, nullable: true }
+              source_url: { type: string, format: uri, nullable: true }
+              provider: { type: string }
+              retrieved_at: { type: string, format: date-time }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer, nullable: true }
+        provider_status: { type: string }
+    IngestionRequest:
+      type: object
+      required: [provider, job_type, query]
+      properties:
+        provider: { type: string, enum: [pubmed, europe_pmc] }
+        job_type: { type: string }
+        query: { type: string, minLength: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    JobAccepted:
+      type: object
+      properties:
+        job_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued] }
+        status_url: { type: string }
+    JobStatus:
+      type: object
+      properties:
+        job_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, completed, failed, cancelled] }
+        records_processed: { type: integer }
+        records_failed: { type: integer }
+        error_summary: { type: string, nullable: true }
+        started_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+    RetrievalRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 1 }
+        source_ids:
+          type: array
+          items: { type: string, format: uuid }
+        include_literary_passages: { type: boolean, default: true }
+        include_scientific_publications: { type: boolean, default: true }
+        top_k: { type: integer, minimum: 1, maximum: 50, default: 10 }
+        ranking_method: { type: string, enum: [rrf], default: rrf }
+    RetrievalResponse:
+      type: object
+      properties:
+        query: { type: string }
+        ranking_method: { type: string }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              result_type: { type: string, enum: [literary_passage, scientific_publication] }
+              source_id: { type: string, format: uuid, nullable: true }
+              passage_id: { type: string, format: uuid, nullable: true }
+              publication_id: { type: string, format: uuid, nullable: true }
+              title: { type: string }
+              excerpt: { type: string }
+              source_url: { type: string, format: uri, nullable: true }
+              source_locator: { type: string, nullable: true }
+              lexical_rank: { type: integer, nullable: true }
+              dense_rank: { type: integer, nullable: true }
+              rrf_score: { type: number }
+    AnalysisRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 1 }
+        passage_ids:
+          type: array
+          items: { type: string, format: uuid }
+        dimensions:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: ["1D", "2D", "3D", "4D"] }
+          default: ["1D", "2D", "3D", "4D"]
+        include_scientific_evidence: { type: boolean, default: true }
+        generate_hypotheses: { type: boolean, default: true }
+        max_hypotheses: { type: integer, minimum: 0, maximum: 20, default: 5 }
+    AnalysisAccepted:
+      type: object
+      properties:
+        analysis_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued] }
+        status_url: { type: string }
+    AnalysisResponse:
+      type: object
+      properties:
+        analysis_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, completed, failed, cancelled] }
+        dimensions:
+          type: object
+          properties:
+            "1D": { type: object, additionalProperties: true }
+            "2D": { type: object, additionalProperties: true }
+            "3D": { type: object, additionalProperties: true }
+            "4D": { type: object, additionalProperties: true }
+        claim_ids:
+          type: array
+          items: { type: string, format: uuid }
+        hypothesis_ids:
+          type: array
+          items: { type: string, format: uuid }
+        limitations:
+          type: array
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+    Claim:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        analysis_id: { type: string, format: uuid }
+        claim_text: { type: string }
+        claim_type: { type: string }
+        evidence_status: { type: string }
+        confidence_score: { type: number, minimum: 0, maximum: 1, nullable: true }
+        verification_status: { type: string }
+    ClaimEvidence:
+      type: object
+      properties:
+        evidence_item_id: { type: string, format: uuid }
+        evidence_type: { type: string }
+        excerpt: { type: string, nullable: true }
+        source_url: { type: string, format: uri, nullable: true }
+        locator: { type: string, nullable: true }
+        relationship: { type: string, enum: [supports, contradicts, qualifies, mentions, irrelevant] }
+        verification_status: { type: string }
+        review_status: { type: string }
+    Hypothesis:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        analysis_id: { type: string, format: uuid }
+        hypothesis_text: { type: string }
+        rationale: { type: string }
+        testability_status: { type: string }
+        novelty_status: { type: string }
+        review_status: { type: string }
+        proposed_validation_method: { type: string, nullable: true }
+        limitations: { type: string, nullable: true }
+    ReviewRequest:
+      type: object
+      required: [decision]
+      properties:
+        claim_id: { type: string, format: uuid, nullable: true }
+        hypothesis_id: { type: string, format: uuid, nullable: true }
+        interpretation_id: { type: string, format: uuid, nullable: true }
+        procedure_id: { type: string, format: uuid, nullable: true }
+        instrument_id: { type: string, format: uuid, nullable: true }
+        decision: { type: string, enum: [approved, rejected, needs_revision, inconclusive] }
+        comments: { type: string, nullable: true }
