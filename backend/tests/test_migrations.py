@@ -1,4 +1,4 @@
-"""Focused checks for migration 0001 against a live database.
+"""Focused checks for migrations against a live database.
 
 These tests SKIP (not pass) when no PostgreSQL is reachable, so a missing
 database is reported honestly rather than fabricating a green result.
@@ -8,6 +8,8 @@ and states explicitly when live database verification is incomplete.
 from __future__ import annotations
 
 import pytest
+from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DataError
 
@@ -103,11 +105,23 @@ def test_all_controlled_vocab_enums_exist():
     )
 
 
+def _script_directory() -> ScriptDirectory:
+    """Alembic script directory resolved from this backend's alembic.ini."""
+    from pathlib import Path
+
+    backend_dir = Path(__file__).resolve().parents[1]
+    cfg = AlembicConfig(str(backend_dir / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+    return ScriptDirectory.from_config(cfg)
+
+
 def test_alembic_version_is_at_head():
+    """The live database must sit at the script's current head (0001 -> ... -> 0003)."""
+    head = _script_directory().get_current_head()
     engine = _require_db()
     with engine.connect() as conn:
         version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-    assert version == "0001", f"expected alembic at 0001, got {version!r}"
+    assert version == head, f"expected alembic at {head}, got {version!r}"
 
 
 def test_enum_labels_match_spec():

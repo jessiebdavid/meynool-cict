@@ -1,6 +1,11 @@
 # Meynool API Starter
 
-Only `/api/v1/health` and `/api/v1/ready` are implemented at this stage. The full routes in `../API_CONTRACT.md` are specifications, not existing endpoints.
+Implemented so far: `/api/v1/health`, `/api/v1/ready`, the authentication
+routes of `API_CONTRACT.md` section 2 (`POST /auth/login`,
+`POST /auth/logout`, `GET /auth/me`) and the full literary source catalogue
+of section 4 (sources, editions, passages, interpretations, revisions — 13
+operations). Everything else in `../API_CONTRACT.md` remains a specification,
+not an existing endpoint.
 
 Run from this directory after activating a virtual environment and installing `requirements.txt`:
 
@@ -32,7 +37,33 @@ cp .env.example .env   # .env is gitignored; never commit it
 ```
 
 If `.env` is absent, both the API and Alembic fall back to the built-in local
-default URL in `app/main.py` (`127.0.0.1:5432/meynool`). `DATABASE_URL` may
+default URL in `app/config.py` (`127.0.0.1:5432/meynool`). `DATABASE_URL` may
 contain a password, so it belongs only in `.env`, never in source control.
 Optional: `DATABASE_CONNECT_TIMEOUT` (seconds, default `5`) bounds the
 readiness probe's connection attempt.
+
+## Migrations
+
+```bash
+alembic upgrade head      # 0001 -> 0002 (users/sessions) -> 0003 (catalogue)
+alembic downgrade 0001    # reversible: drops only what 0002/0003 created
+```
+
+Index creation for catalog tables is intentionally deferred to migration
+`0013_search_and_performance_indexes` (see `../DATABASE_SCHEMA.md` section 6);
+`0002` includes the account/session indexes that section 6 step 2 assigns to it.
+
+## Bootstrap the first administrator
+
+There is no registration endpoint by contract. Create the first local admin
+with the documented CLI command (from `backend/`, after `alembic upgrade head`):
+
+```bash
+python scripts/create_admin.py --username alice \
+    --email alice@local.test --display-name "Alice"
+```
+
+The script prompts for the password on a TTY (or reads the
+`MEYNOOL_ADMIN_PASSWORD` environment variable when run non-interactively);
+passwords are never accepted as arguments and never logged. It stores only a
+PBKDF2-SHA256 hash and creates the account as `role=admin, status=active`.

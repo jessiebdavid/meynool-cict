@@ -3,22 +3,14 @@ import uuid
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InterfaceError, OperationalError, SQLAlchemyError
 
+from app.config import settings
+from app.routes_auth import router as auth_router
+from app.routes_catalogue import router as catalogue_router
 
-class Settings(BaseSettings):
-    app_env: str = "development"
-    database_url: str = "postgresql+psycopg://postgres:local_dev_change_me@127.0.0.1:5432/meynool"
-    # Bound the readiness probe so an unreachable database fails fast instead of
-    # hanging the worker. Seconds; overridable via DATABASE_CONNECT_TIMEOUT.
-    database_connect_timeout: int = 5
-    model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
-
-
-settings = Settings()
 app = FastAPI(
     title="Meynool Research Platform API",
     version="0.1.0",
@@ -64,6 +56,26 @@ def _error_response(
     )
 
 
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.middleware("http")
+async def csrf_origin_check(request: Request, call_next):
+    """Minimal CSRF control for cookie auth (API_CONTRACT.md section 2).
+
+    SameSite=strict cookies are the primary defense; this additionally
+    rejects mutating browser requests whose Origin is not this host.
+    """
+    origin = request.headers.get("Origin")
+    if request.method in _UNSAFE_METHODS and origin:
+        expected = f"{request.url.scheme}://{request.url.netloc}"
+        if origin.rstrip("/") != expected:
+            return _error_response(
+                403, "FORBIDDEN", "Cross-origin request rejected", request
+            )
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def attach_request_id(request: Request, call_next):
     incoming = request.headers.get("X-Request-ID")
@@ -103,6 +115,29 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return _error_response(422, "VALIDATION_ERROR", "Request validation failed", request)
 
 
+@app.exception_handler(OperationalError)
+@app.exception_handler(InterfaceError)
+async def database_unavailable_handler(
+    request: Request, exc: OperationalError | InterfaceError
+):
+    """API_CONTRACT.md 1.2: dependency failures use the envelope, never a
+    stack trace — an unreachable database is 503 DEPENDENCY_UNAVAILABLE."""
+    return _error_response(
+        503,
+        "DEPENDENCY_UNAVAILABLE",
+        "A required dependency is not available; check /api/v1/ready",
+        request,
+    )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error_handler(request: Request, exc: SQLAlchemyError):
+    """Other database errors still return the contract envelope (1.2)."""
+    return _error_response(
+        500, "INTERNAL_ERROR", "Request failed", request
+    )
+
+
 @app.get("/api/v1/health", tags=["Health"])
 def health() -> dict[str, str]:
     """Process health only; does not imply database or AI features are ready."""
@@ -124,3 +159,7 @@ def readiness() -> dict[str, str]:
     except (SQLAlchemyError, ValueError) as exc:
         raise HTTPException(status_code=503, detail="Database is not ready; check DATABASE_URL and PostgreSQL.") from exc
     return {"status": "ready", "database": "reachable", "schema": "not_verified"}
+
+
+app.include_router(auth_router)
+app.include_router(catalogue_router)
